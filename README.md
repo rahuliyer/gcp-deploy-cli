@@ -17,23 +17,15 @@ Before using this tool, make sure you have:
 
 1. **Node.js 18+** installed
 2. **Docker** installed and running
-3. **gcloud CLI** installed and authenticated
+3. **gcloud CLI** installed
 4. **GCP Project** with billing enabled
-5. **Required APIs enabled**:
-   - Cloud Run API
-   - Artifact Registry API
-   - Cloud Build API
-   - Cloud Logging API
 
-### Enable Required APIs
-
-```bash
-gcloud services enable \
-  run.googleapis.com \
-  artifactregistry.googleapis.com \
-  cloudbuild.googleapis.com \
-  logging.googleapis.com
-```
+**That's it!** The `gcp-deploy init` command will automatically:
+- ✅ Authenticate with gcloud (if needed)
+- ✅ Set your GCP project
+- ✅ Enable required APIs (Cloud Run, Artifact Registry, Cloud Build, Logging)
+- ✅ Create Artifact Registry repository
+- ✅ Configure Docker authentication
 
 ### Required IAM Permissions
 
@@ -42,6 +34,7 @@ Your GCP user or service account needs:
 - Cloud Run Admin
 - Storage Admin (for Artifact Registry)
 - Logs Viewer
+- Service Usage Admin (to enable APIs automatically)
 
 ## Installation
 
@@ -76,10 +69,15 @@ cd my-nextjs-app
 gcp-deploy init
 ```
 
-This will:
+This will automatically:
+- Authenticate with gcloud (if not already authenticated)
+- Set your GCP project
+- Enable required APIs
+- Create Artifact Registry repository
+- Configure Docker authentication
 - Prompt you for GCP project ID, region, and service name
 - Generate `gcp-deploy.json` configuration
-- Create an optimized `Dockerfile`
+- Create an optimized `Dockerfile` (Node 20, multi-stage, AMD64 platform)
 - Create `cloudbuild.yaml` for Cloud Build
 - Create `.gcloudignore` file
 - Update/create `next.config.js` with standalone output mode
@@ -140,10 +138,10 @@ gcp-deploy deploy --preview --branch feature-xyz
 1. Pre-flight checks (Docker running, gcloud authenticated)
 2. Docker authentication with Artifact Registry
 3. Load environment variables from `.env`
-4. Build Docker image
+4. Build Docker image (AMD64 platform for Cloud Run compatibility)
 5. Push image to Artifact Registry
-6. Deploy to Cloud Run
-7. Configure public access
+6. Deploy to Cloud Run using gcloud CLI
+7. Configure public access (--allow-unauthenticated)
 8. Display service URL
 
 ### `gcp-deploy list`
@@ -278,7 +276,8 @@ These will be automatically loaded and passed to Cloud Run during deployment.
 The generated `Dockerfile` uses:
 
 - **Multi-stage build** (deps, builder, runner)
-- **Node 18 Alpine** for minimal image size
+- **Node 20 Alpine** for Next.js compatibility
+- **AMD64 platform** for Cloud Run compatibility (works on Apple Silicon Macs)
 - **Automatic package manager detection** (npm, yarn, pnpm)
 - **Next.js standalone output** for optimized production builds
 - **Non-root user** (nextjs:nodejs) for security
@@ -318,23 +317,28 @@ Please start Docker and try again.
 Error: gcloud CLI is not authenticated.
 ```
 
-**Solution**:
+**Solution**: Run `gcp-deploy init` again - it will automatically prompt you to authenticate.
+
+Or manually:
 ```bash
 gcloud auth login
+gcloud auth application-default login
 gcloud config set project YOUR_PROJECT_ID
 ```
 
 ### API not enabled
 
+The `gcp-deploy init` command automatically enables all required APIs. If you see this error:
+
 ```
 Error: ... API has not been used in project ...
 ```
 
-**Solution**:
+**Solution**: Run `gcp-deploy init` again to enable APIs automatically.
+
+Or manually:
 ```bash
-gcloud services enable run.googleapis.com
-gcloud services enable artifactregistry.googleapis.com
-gcloud services enable cloudbuild.googleapis.com
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com logging.googleapis.com
 ```
 
 ### Permission denied
