@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import ora from 'ora';
+import { execSync } from 'child_process';
 import { readProjectConfig, isProjectInitialized, readDeploymentHistory } from '../lib/config.js';
-import { GCPClient } from '../lib/gcp-client.js';
 
 /**
  * Format date for display
@@ -31,10 +31,13 @@ export async function listCommand(options) {
   const spinner = ora('Fetching deployments...').start();
 
   try {
-    const gcpClient = new GCPClient(config.projectId, config.region);
+    // Get all Cloud Run services using gcloud CLI
+    const servicesOutput = execSync(
+      `gcloud run services list --region=${config.region} --project=${config.projectId} --format=json`,
+      { encoding: 'utf8', stdio: 'pipe' }
+    );
 
-    // Get all services from Cloud Run
-    const services = await gcpClient.listServices();
+    const allServices = JSON.parse(servicesOutput);
 
     // Read local deployment history
     const history = readDeploymentHistory();
@@ -42,7 +45,7 @@ export async function listCommand(options) {
     spinner.succeed('Deployments fetched');
 
     // Filter services that match our service name pattern
-    const relevantServices = services.filter(service => {
+    const relevantServices = allServices.filter(service => {
       const name = service.metadata?.name || '';
       return name === config.serviceName || name.startsWith(`${config.serviceName}-`);
     });
@@ -58,7 +61,7 @@ export async function listCommand(options) {
 
     for (const service of relevantServices) {
       const serviceName = service.metadata?.name || '';
-      const url = GCPClient.getServiceUrl(service);
+      const url = service.status?.url || service.status?.address?.url || 'N/A';
       const updatedAt = service.metadata?.updateTime || service.metadata?.creationTimestamp;
 
       // Find in history
